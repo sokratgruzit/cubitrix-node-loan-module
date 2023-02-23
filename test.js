@@ -5,6 +5,7 @@ const router = require("./routes/index");
 const cors = require("cors");
 const cors_options = require("./config/cors_options");
 const credentials = require("./middleware/credentials");
+// const Compound = require("@compound-finance/compound-js"); // in Node.js
 
 require("dotenv").config();
 
@@ -19,6 +20,21 @@ app.use(
     extended: true,
   }),
 );
+
+// const cUsdtAddress = Compound.util.getAddress(Compound.cUSDT);
+
+// (async function () {
+//   let supplyRatePerBlock = await Compound.eth.read(
+//     cUsdtAddress,
+//     "function supplyRatePerBlock() returns (uint)",
+//     [], // [optional] parameters
+//     {}, // [optional] call options, provider, network, ethers.js "overrides"
+//   );
+
+//   console.log("USDT supplyRatePerBlock:", supplyRatePerBlock.toString());
+// })().catch(console.error);
+
+// console.log(Compound, cUsdtAddress);
 
 app.use("/api", router);
 
