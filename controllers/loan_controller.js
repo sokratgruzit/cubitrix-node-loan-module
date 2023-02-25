@@ -3,24 +3,13 @@ const models = require("@cubitrix/models");
 const account_loan = require("../models/account_loan");
 const p2p_loans = require("../models/p2p-loans");
 
-async function test(req, res) {
-  try {
-    let data = "Goga shitty programmer";
-
-    res.status(200).json(data);
-  } catch (e) {
-    console.log(e);
-    return res.status(400).json({ message: e });
-  }
-}
-
 async function getLoans(req, res) {
   try {
     const loans = await p2p_loans.find();
 
     res.status(200).send(loans);
   } catch (e) {
-    res.status(400).send({ message: "something went wrong" });
+    res.status(400).send({ message: "Something went wrong" });
   }
 }
 
@@ -38,7 +27,7 @@ async function createLoan(req, res) {
       collateral,
     });
 
-    res.status(200).send("new loan created");
+    res.status(200).send("New loan created");
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Internal server error");
@@ -50,17 +39,17 @@ async function takeLoan(req, res) {
     const { id, borrower, collateral } = req.body;
 
     if (JSON.stringify(collateral) === "[]") {
-      return res.status(400).send({ message: "collateral is required" });
+      return res.status(400).send({ message: "Collateral is required" });
     }
 
     const loan = await p2p_loans.findOne({ _id: id });
 
     if (!loan) {
-      return res.status(400).send({ message: "loan not found" });
+      return res.status(400).send({ message: "Loan not found" });
     }
 
     if (loan.status !== "Offered") {
-      return res.status(400).send({ message: "loan is not offered" });
+      return res.status(400).send({ message: "Loan is not offered" });
     }
 
     const updateLoan = await p2p_loans.findOneAndUpdate(
@@ -71,7 +60,7 @@ async function takeLoan(req, res) {
       { new: true },
     );
 
-    res.status(200).send({ message: "offer is sent to lender", result: updateLoan });
+    res.status(200).send({ message: "Offer is sent to lender", result: updateLoan });
   } catch (e) {
     console.log(e);
     return res.status(400).send({ message: e });
@@ -85,15 +74,15 @@ async function repayLoan(req, res) {
     const loan = await p2p_loans.findOne({ _id: id });
 
     if (!loan) {
-      return res.status(400).send({ message: "loan not found" });
+      return res.status(400).send({ message: "Loan not found" });
     }
 
     if (loan.amount < repayAmount) {
-      return res.status(400).send({ message: "repay amount is too much" });
+      return res.status(400).send({ message: "Repay amount is too much" });
     }
 
     if (loan.status !== "Active") {
-      return res.status(400).send({ message: "loan is already closed" });
+      return res.status(400).send({ message: "Loan is already closed" });
     }
 
     if (loan.amount === repayAmount) {
@@ -102,7 +91,7 @@ async function repayLoan(req, res) {
         { status: "Closed", amount: 0 },
         { new: true },
       );
-      return res.status(200).send({ message: "loan repaid", result: repaidLoan });
+      return res.status(200).send({ message: "Loan repaid", result: repaidLoan });
     }
 
     if (loan.amount > repayAmount) {
@@ -112,7 +101,7 @@ async function repayLoan(req, res) {
         { new: true },
       );
 
-      return res.status(200).send({ message: "loan repaid", result: repaidLoan });
+      return res.status(200).send({ message: "Loan repaid", result: repaidLoan });
     }
   } catch (e) {
     return res.status(400).send({ message: e });
@@ -126,11 +115,11 @@ async function defaultLoan(req, res) {
     const loan = await p2p_loans.findOne({ _id: id });
 
     if (!loan) {
-      return res.status(400).send({ message: "loan not found" });
+      return res.status(400).send({ message: "Loan not found" });
     }
 
     if (loan.status === "Closed") {
-      return res.status(400).send({ message: "loan is already closed" });
+      return res.status(400).send({ message: "Loan is already closed" });
     }
 
     const repaidLoan = await p2p_loans.findOneAndUpdate(
@@ -139,15 +128,14 @@ async function defaultLoan(req, res) {
       { new: true },
     );
 
-    return res.status(200).send({ message: "loan defaulted", result: repaidLoan });
+    return res.status(200).send({ message: "Loan defaulted", result: repaidLoan });
   } catch (e) {}
 }
 
 module.exports = {
-  test,
   createLoan,
   getLoans,
   takeLoan,
   repayLoan,
-  defaultLoan,
+  defaultLoan
 };
