@@ -1,11 +1,34 @@
 require("dotenv").config();
 const models = require("@cubitrix/models");
+const { findOne } = require("../models/account_loan");
 const account_loan = require("../models/account_loan");
 const p2p_loans = require("../models/p2p-loans");
 
-async function getLoans(req, res) {
+async function loanMarketOffers(req, res) {
   try {
-    const loans = await p2p_loans.find();
+    const loans = await p2p_loans.find({ status: "Offered" });
+
+    res.status(200).send(loans);
+  } catch (e) {
+    res.status(400).send({ message: "something went wrong" });
+  }
+}
+
+async function getUserCreatedLoans(req, res) {
+  try {
+    const { lender } = req.params;
+    const loans = await p2p_loans.find({ lender });
+
+    res.status(200).send(loans);
+  } catch (e) {
+    res.status(400).send({ message: "something went wrong" });
+  }
+}
+
+async function getUserLoans(req, res) {
+  try {
+    const { borrower } = req.params;
+    const loans = await p2p_loans.find({ borrower });
 
     res.status(200).send(loans);
   } catch (e) {
@@ -17,7 +40,11 @@ async function createLoan(req, res) {
   try {
     const { lender, amount, interest, duration, collateral } = req.body;
 
-    await p2p_loans.create({
+    if (!lender) {
+      return res.status(400).send({ message: "lender is required" });
+    }
+
+    const result = await p2p_loans.create({
       borrower: "",
       lender,
       amount,
@@ -31,6 +58,22 @@ async function createLoan(req, res) {
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Internal server error");
+  }
+}
+async function deleteLoanOffer(req, res) {
+  try {
+    const { id, lender } = req.body;
+
+    const result = await p2p_loans.findOne({ _id: id, lender });
+
+    if (!result) {
+      return res.status(400).send({ message: "No such loan offer found" });
+    }
+
+    await result.deleteOne();
+    res.status(200).send({ message: "laon offer successfully deleted", deletedID: id });
+  } catch (e) {
+    res.status(400).send({ message: e.message });
   }
 }
 
@@ -52,6 +95,10 @@ async function takeLoan(req, res) {
       return res.status(400).send({ message: "Loan is not offered" });
     }
 
+    if (loan.lender === borrower) {
+      return res.status(400).send({ message: "You can't take your own loan" });
+    }
+
     const updateLoan = await p2p_loans.findOneAndUpdate(
       {
         _id: id,
@@ -71,7 +118,7 @@ async function repayLoan(req, res) {
   try {
     const { id, borrower, repayAmount } = req.body;
 
-    const loan = await p2p_loans.findOne({ _id: id });
+    const loan = await p2p_loans.findOne({ _id: id, borrower });
 
     if (!loan) {
       return res.status(400).send({ message: "Loan not found" });
@@ -112,7 +159,7 @@ async function defaultLoan(req, res) {
   try {
     const { id, borrower } = req.body;
 
-    const loan = await p2p_loans.findOne({ _id: id });
+    const loan = await p2p_loans.findOne({ _id: id, borrower });
 
     if (!loan) {
       return res.status(400).send({ message: "Loan not found" });
@@ -134,8 +181,11 @@ async function defaultLoan(req, res) {
 
 module.exports = {
   createLoan,
-  getLoans,
+  loanMarketOffers,
+  getUserCreatedLoans,
+  getUserLoans,
   takeLoan,
   repayLoan,
-  defaultLoan
+  defaultLoan,
+  deleteLoanOffer
 };
