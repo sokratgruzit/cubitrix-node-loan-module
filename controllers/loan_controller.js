@@ -19,7 +19,7 @@ async function loanMarketOffers(req, res) {
   try {
     const loans = await p2p_loans.find({ status: "Offered" });
 
-    res.status(200).send({ loans });
+    res.status(200).send({ result: loans });
   } catch (e) {
     res.status(400).send({ message: "something went wrong" });
   }
@@ -30,7 +30,7 @@ async function getUserCreatedLoans(req, res) {
     const { lender } = req.params;
     const loans = await p2p_loans.find({ lender });
 
-    res.status(200).send(loans);
+    res.status(200).send({ result: loans });
   } catch (e) {
     res.status(400).send({ message: "something went wrong" });
   }
@@ -41,7 +41,7 @@ async function getUserLoans(req, res) {
     const { borrower } = req.params;
     const loans = await p2p_loans.find({ borrower });
 
-    res.status(200).send(loans);
+    res.status(200).send({ result: loans });
   } catch (e) {
     res.status(400).send({ message: "something went wrong" });
   }
