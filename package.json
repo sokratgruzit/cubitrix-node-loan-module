@@ -1,5 +1,5 @@
 {
-  "name": "cubitrix-node-loan-module",
+  "name": "@cubitrix/cubitrix-node-loan-module",
   "version": "1.0.0",
   "description": "",
   "main": "loan.js",
