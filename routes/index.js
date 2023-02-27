@@ -4,7 +4,7 @@ const loan_controller = require("../controllers/loan_controller");
 
 router.get("/test", loan_controller.test);
 
-router.get("/loan--market-offers", loan_controller.loanMarketOffers);
+router.get("/loan-market-offers", loan_controller.loanMarketOffers);
 router.get("/user-created-loans/:lender", loan_controller.getUserCreatedLoans);
 router.get("/user-loans/:borrower", loan_controller.getUserLoans);
 

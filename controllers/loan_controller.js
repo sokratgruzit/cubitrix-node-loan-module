@@ -19,7 +19,7 @@ async function loanMarketOffers(req, res) {
   try {
     const loans = await p2p_loans.find({ status: "Offered" });
 
-    res.status(200).send(loans);
+    res.status(200).send({ loans });
   } catch (e) {
     res.status(400).send({ message: "something went wrong" });
   }
