@@ -27,7 +27,7 @@ async function loanMarketOffers(req, res) {
 
 async function getUserCreatedLoans(req, res) {
   try {
-    const { lender } = req.params;
+    const lender = req.query.address;
     const loans = await p2p_loans.find({ lender });
 
     res.status(200).send({ result: loans });
@@ -38,7 +38,8 @@ async function getUserCreatedLoans(req, res) {
 
 async function getUserLoans(req, res) {
   try {
-    const { borrower } = req.params;
+    const borrower = req.query.address;
+
     const loans = await p2p_loans.find({ borrower });
 
     res.status(200).send({ result: loans });
@@ -49,7 +50,7 @@ async function getUserLoans(req, res) {
 
 async function createLoan(req, res) {
   try {
-    const { lender, amount, interest, duration, collateral } = req.body;
+    const { lender, amount, interest, duration } = req.body;
 
     if (!lender) {
       return res.status(400).send({ message: "lender is required" });
@@ -62,7 +63,6 @@ async function createLoan(req, res) {
       interest,
       duration,
       status: "Offered",
-      collateral,
     });
 
     res.status(200).send({ message: "new loan created", result });
@@ -127,7 +127,7 @@ async function takeLoan(req, res) {
 
 async function repayLoan(req, res) {
   try {
-    const { id, borrower, repayAmount } = req.body;
+    const { id, borrower, amount } = req.body;
 
     const loan = await p2p_loans.findOne({ _id: id, borrower });
 
@@ -135,7 +135,7 @@ async function repayLoan(req, res) {
       return res.status(400).send({ message: "loan not found" });
     }
 
-    if (loan.amount < repayAmount) {
+    if (loan.amount < amount) {
       return res.status(400).send({ message: "repay amount is too much" });
     }
 
@@ -143,7 +143,7 @@ async function repayLoan(req, res) {
       return res.status(400).send({ message: "loan is already closed" });
     }
 
-    if (loan.amount === repayAmount) {
+    if (loan.amount === amount) {
       const repaidLoan = await p2p_loans.findOneAndUpdate(
         { _id: id },
         { status: "Closed", amount: 0 },
@@ -152,10 +152,10 @@ async function repayLoan(req, res) {
       return res.status(200).send({ message: "loan repaid", result: repaidLoan });
     }
 
-    if (loan.amount > repayAmount) {
+    if (loan.amount > amount) {
       const repaidLoan = await p2p_loans.findOneAndUpdate(
         { _id: id },
-        { amount: loan.amount - repayAmount },
+        { amount: loan.amount - amount },
         { new: true },
       );
 

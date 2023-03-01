@@ -36,7 +36,7 @@ app.use(
 
 // console.log(Compound, cUsdtAddress);
 
-app.use("/api", router);
+app.use("/api/loan", router);
 
 //static path
 const root = require("path").join(__dirname, "front", "build");
