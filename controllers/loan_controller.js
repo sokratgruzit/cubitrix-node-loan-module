@@ -3,10 +3,11 @@ const models = require("@cubitrix/models");
 const { findOne } = require("../models/account_loan");
 const account_loan = require("../models/account_loan");
 const p2p_loans = require("../models/p2p-loans");
+const mongoose = require("mongoose");
 
 async function test(req, res) {
   try {
-    let data = "Goga shitty programmer";
+    let data = "test";
 
     res.status(200).json(data);
   } catch (e) {
@@ -75,6 +76,10 @@ async function deleteLoanOffer(req, res) {
   try {
     const { id, lender } = req.body;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid loan ID" });
+    }
+
     const result = await p2p_loans.findOne({ _id: id, lender });
 
     if (!result) {
@@ -91,6 +96,10 @@ async function deleteLoanOffer(req, res) {
 async function takeLoan(req, res) {
   try {
     const { id, borrower, collateral } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid loan ID" });
+    }
 
     if (JSON.stringify(collateral) === "[]") {
       return res.status(400).send({ message: "collateral is required" });
@@ -128,6 +137,10 @@ async function takeLoan(req, res) {
 async function repayLoan(req, res) {
   try {
     const { id, borrower, amount } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid loan ID" });
+    }
 
     const loan = await p2p_loans.findOne({ _id: id, borrower });
 
@@ -169,6 +182,10 @@ async function repayLoan(req, res) {
 async function defaultLoan(req, res) {
   try {
     const { id, borrower } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid loan ID" });
+    }
 
     const loan = await p2p_loans.findOne({ _id: id, borrower });
 
