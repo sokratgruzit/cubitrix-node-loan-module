@@ -8,6 +8,7 @@ const p2p_loans = new mongoose.Schema({
   duration: Number,
   status: String,
   collateral: [],
+  allOffers: [],
 });
 
 module.exports = mongoose.models.p2p_loans || mongoose.model("p2p_loans", p2p_loans);

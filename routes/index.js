@@ -11,6 +11,8 @@ router.get("/user-loans", loan_controller.getUserLoans);
 router.post("/create-loan", loan_controller.createLoan);
 router.post("/delete-loan-offer", loan_controller.deleteLoanOffer);
 
+router.post("/send-loan-offer", loan_controller.sendLoanOffer);
+
 router.post("/take-loan", loan_controller.takeLoan);
 router.post("/repay-loan", loan_controller.repayLoan);
 router.post("/default-loan", loan_controller.defaultLoan);

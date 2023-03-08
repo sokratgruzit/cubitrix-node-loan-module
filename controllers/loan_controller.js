@@ -207,6 +207,74 @@ async function defaultLoan(req, res) {
   } catch (e) {}
 }
 
+async function sendLoanOffer(req, res) {
+  try {
+    const { id, borrower, collateral, offerDuration } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid loan ID" });
+    }
+
+    if (JSON.stringify(collateral) === "[]") {
+      return res.status(400).send({ message: "collateral is required" });
+    }
+
+    if (!borrower) {
+      return res.status(400).send({ message: "borrower is required" });
+    }
+
+    const loan = await p2p_loans.findOne({ _id: id });
+
+    if (!loan) {
+      return res.status(400).send({ message: "loan not found" });
+    }
+
+    if (loan.status !== "Offered") {
+      return res.status(400).send({ message: "loan is not offered" });
+    }
+
+    if (loan.lender === borrower) {
+      return res.status(400).send({ message: "you can't make offer to yourself" });
+    }
+
+    const result = hasValueAppearingMoreThanThreeTimes(
+      loan.allOffers,
+      "borrower",
+      borrower,
+    );
+
+    if (result) {
+      return res.status(400).send({ message: "you can't make more than 3 offers" });
+    }
+
+    const updateLoan = await p2p_loans.findOneAndUpdate(
+      {
+        _id: id,
+      },
+      { allOffers: [...loan.allOffers, { borrower, collateral }] },
+      { new: true },
+    );
+
+    res.status(200).send({ message: "offer is sent to lender", result: updateLoan });
+  } catch (e) {
+    res.status(400).send({ message: e });
+  }
+}
+
+function hasValueAppearingMoreThanThreeTimes(arr, prop, value) {
+  let count = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i][prop] === value) {
+      count++;
+      console.log(count);
+      if (count >= 3) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 module.exports = {
   test,
   createLoan,
@@ -217,4 +285,5 @@ module.exports = {
   repayLoan,
   defaultLoan,
   deleteLoanOffer,
+  sendLoanOffer,
 };
