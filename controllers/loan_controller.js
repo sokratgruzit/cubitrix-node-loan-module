@@ -1,8 +1,6 @@
 require("dotenv").config();
 const models = require("@cubitrix/models");
-const { findOne } = require("../models/account_loan");
-const account_loan = require("../models/account_loan");
-const p2p_loans = require("../models/p2p-loans");
+const { p2p_loans, p2p_loan_offers } = require("../models/p2p-loans");
 const mongoose = require("mongoose");
 
 async function test(req, res) {
@@ -90,47 +88,6 @@ async function deleteLoanOffer(req, res) {
     res.status(200).send({ message: "laon offer successfully deleted", deletedID: id });
   } catch (e) {
     res.status(400).send({ message: e.message });
-  }
-}
-
-async function takeLoan(req, res) {
-  try {
-    const { id, borrower, collateral } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(404).send({ message: "Invalid loan ID" });
-    }
-
-    if (JSON.stringify(collateral) === "[]") {
-      return res.status(400).send({ message: "collateral is required" });
-    }
-
-    const loan = await p2p_loans.findOne({ _id: id });
-
-    if (!loan) {
-      return res.status(400).send({ message: "loan not found" });
-    }
-
-    if (loan.status !== "Offered") {
-      return res.status(400).send({ message: "loan is not offered" });
-    }
-
-    if (loan.lender === borrower) {
-      return res.status(400).send({ message: "you can't take your own loan" });
-    }
-
-    const updateLoan = await p2p_loans.findOneAndUpdate(
-      {
-        _id: id,
-      },
-      { borrower, collateral, status: "Active" },
-      { new: true },
-    );
-
-    res.status(200).send({ message: "offer is sent to lender", result: updateLoan });
-  } catch (e) {
-    console.log(e);
-    return res.status(400).send({ message: e });
   }
 }
 
@@ -223,7 +180,7 @@ async function sendLoanOffer(req, res) {
       return res.status(400).send({ message: "borrower is required" });
     }
 
-    const loan = await p2p_loans.findOne({ _id: id });
+    const loan = await p2p_loans.findOne({ _id: id }).populate("allOffers");
 
     if (!loan) {
       return res.status(400).send({ message: "loan not found" });
@@ -237,42 +194,197 @@ async function sendLoanOffer(req, res) {
       return res.status(400).send({ message: "you can't make offer to yourself" });
     }
 
-    const result = hasValueAppearingMoreThanThreeTimes(
-      loan.allOffers,
-      "borrower",
-      borrower,
-    );
-
-    if (result) {
+    const numPreviousOffers = loan.allOffers.filter(
+      (offer) => offer.borrower === borrower,
+    ).length;
+    if (numPreviousOffers > 2) {
       return res.status(400).send({ message: "you can't make more than 3 offers" });
     }
 
-    const updateLoan = await p2p_loans.findOneAndUpdate(
-      {
-        _id: id,
-      },
-      { allOffers: [...loan.allOffers, { borrower, collateral }] },
-      { new: true },
-    );
+    const newOffer = new p2p_loan_offers({
+      borrower,
+      collateral,
+      offerDuration,
+      status: "active",
+      loanId: id,
+    });
 
-    res.status(200).send({ message: "offer is sent to lender", result: updateLoan });
+    await newOffer.save();
+
+    loan.allOffers.push(newOffer);
+
+    const updatedLoan = await loan.save();
+
+    res.status(200).send({ message: "offer is sent to lender", result: updatedLoan });
   } catch (e) {
-    res.status(400).send({ message: e });
+    console.log(e);
+    res.status(400).send({ message: "something went wrong" });
   }
 }
 
-function hasValueAppearingMoreThanThreeTimes(arr, prop, value) {
-  let count = 0;
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i][prop] === value) {
-      count++;
-      console.log(count);
-      if (count >= 3) {
-        return true;
-      }
+async function rescindLoanOffer(req, res) {
+  try {
+    const { id, borrower, offerId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid Loan ID" });
     }
+
+    const loan = await p2p_loans.findOne({ _id: id }).populate("allOffers");
+
+    if (!loan) {
+      return res.status(400).send({ message: "loan not found" });
+    }
+
+    if (loan.status !== "Offered") {
+      return res.status(400).send({ message: "loan is not offered" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(offerId)) {
+      return res.status(404).send({ message: "Invalid Offer ID" });
+    }
+
+    const offer = await p2p_loan_offers.findOne({ _id: offerId });
+
+    if (!offer) {
+      return res.status(400).send({ message: "offer not found" });
+    }
+
+    if (offer.borrower !== borrower) {
+      return res.status(400).send({ message: "you can't rescind other's offer" });
+    }
+
+    if (offer.status !== "active") {
+      return res.status(400).send({ message: "offer isn't active" });
+    }
+
+    const updatedOfferInLoan = await p2p_loans.findOneAndUpdate(
+      { _id: id, allOffers: { $elemMatch: { _id: offerId } } },
+      { $set: { "allOffers.$.status": "revoked" } },
+      { new: true },
+    );
+
+    res
+      .status(200)
+      .send({ message: "successfully rescined offer", data: updatedOfferInLoan });
+  } catch (e) {
+    console.log(e);
+    res.status(400).send({ message: "something went wrong" });
   }
-  return false;
+}
+
+async function acceptOffer(req, res) {
+  try {
+    const { id, offerId, borrower } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid Loan ID" });
+    }
+
+    const loan = await p2p_loans.findOne({ _id: id }).populate("allOffers");
+
+    if (!loan) {
+      return res.status(400).send({ message: "loan not found" });
+    }
+
+    if (loan.status !== "Offered") {
+      return res.status(400).send({ message: "loan is not offered" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(offerId)) {
+      return res.status(404).send({ message: "Invalid Offer ID" });
+    }
+
+    if (loan.lender !== borrower) {
+      return res.status(400).send({ message: "you can't accept offer for other's loan" });
+    }
+
+    const offer = await p2p_loan_offers.findOne({ _id: offerId });
+
+    if (!offer) {
+      return res.status(400).send({ message: "offer not found" });
+    }
+
+    if (offer.status !== "active") {
+      return res.status(400).send({ message: "offer isn't active" });
+    }
+
+    const updatedOffer = await p2p_loan_offers.findOneAndUpdate(
+      { _id: offerId },
+      { status: "Accepted" },
+      { new: true },
+    );
+
+    await p2p_loans.findOneAndUpdate(
+      { _id: id, allOffers: { $elemMatch: { _id: offerId } } },
+      {
+        borrower,
+        collateral: offer.collateral,
+        status: "active",
+        $set: { "allOffers.$.status": "Accepted" },
+      },
+      { new: true },
+    );
+
+    res.status(200).send({ message: "offer is accepted", data: updatedOffer });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).send({ message: "something went wrong" });
+  }
+}
+
+async function rejectOffer(req, res) {
+  try {
+    const { id, offerId, borrower } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send({ message: "Invalid Loan ID" });
+    }
+
+    const loan = await p2p_loans.findOne({ _id: id }).populate("allOffers");
+
+    if (!loan) {
+      return res.status(400).send({ message: "loan not found" });
+    }
+
+    if (loan.status !== "Offered") {
+      return res.status(400).send({ message: "loan is not offered" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(offerId)) {
+      return res.status(404).send({ message: "Invalid Offer ID" });
+    }
+
+    if (loan.lender !== borrower) {
+      return res.status(400).send({ message: "you can't reject offer for other's loan" });
+    }
+
+    const offer = await p2p_loan_offers.findOne({ _id: offerId });
+
+    if (!offer) {
+      return res.status(400).send({ message: "offer not found" });
+    }
+
+    if (offer.status !== "active") {
+      return res.status(400).send({ message: "offer isn't active" });
+    }
+
+    const updatedOffer = await p2p_loan_offers.findOneAndUpdate(
+      { _id: offerId },
+      { status: "Rejected" },
+      { new: true },
+    );
+
+    await p2p_loans.findOneAndUpdate(
+      { _id: id, allOffers: { $elemMatch: { _id: offerId } } },
+      { $set: { "allOffers.$.status": "Rejected" } },
+      { new: true },
+    );
+
+    res.status(200).send({ message: "offer is rejected", data: updatedOffer });
+  } catch (e) {
+    return res.status(400).send({ message: "something went wrong" });
+  }
 }
 
 module.exports = {
@@ -281,9 +393,11 @@ module.exports = {
   loanMarketOffers,
   getUserCreatedLoans,
   getUserLoans,
-  takeLoan,
   repayLoan,
   defaultLoan,
   deleteLoanOffer,
   sendLoanOffer,
+  rescindLoanOffer,
+  acceptOffer,
+  rejectOffer,
 };
